@@ -1,10 +1,11 @@
-import type { Session, OutputLine, SessionStatus } from "@/types/session";
+import type { Session, OutputLine, SessionStatus, TodoItem } from "@/types/session";
 
 export interface WSHandlers {
   onSessions: (sessions: Session[]) => void;
   onOutput: (sessionId: string, line: OutputLine) => void;
   onStatus: (sessionId: string, status: SessionStatus, progress?: number) => void;
   onElapsed: (sessionId: string, elapsed: number) => void;
+  onTodoUpdate: (sessionId: string, items: TodoItem[]) => void;
   onNotification: (message: string) => void;
   onConnectionChange: (connected: boolean) => void;
 }
@@ -53,6 +54,9 @@ export class WSClient {
             break;
           case "elapsed":
             this.handlers.onElapsed(msg.sessionId, msg.elapsed);
+            break;
+          case "todo_update":
+            this.handlers.onTodoUpdate(msg.sessionId, msg.todoItems);
             break;
           case "notification":
             this.handlers.onNotification(msg.message);

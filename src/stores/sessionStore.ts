@@ -188,6 +188,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           ),
         }));
       },
+      onTodoUpdate: (sessionId, items) => {
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === sessionId ? { ...s, todoItems: items } : s
+          ),
+        }));
+      },
       onNotification: (message) => {
         showToast(message);
       },

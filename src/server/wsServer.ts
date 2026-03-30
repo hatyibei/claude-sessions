@@ -1,9 +1,11 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage } from "http";
 import { resolve } from "path";
-import { existsSync } from "fs";
+import { existsSync, realpathSync } from "fs";
 import { SessionManager } from "./sessionManager";
+import { FileWatcher } from "./fileWatcher";
 import type { SessionEvent, OutputLine, SessionStatus } from "./sessionManager";
+import type { Session, TodoItem } from "../types/session";
 
 const MAX_COMMAND_LENGTH = 4096;
 const MAX_MESSAGES_PER_SECOND = 20;
@@ -18,13 +20,14 @@ interface ClientMessage {
 }
 
 interface ServerMessage {
-  type: "sessions" | "output" | "status" | "notification" | "elapsed";
+  type: "sessions" | "output" | "status" | "notification" | "elapsed" | "todo_update";
   sessionId?: string;
   sessions?: unknown[];
   line?: OutputLine;
   status?: SessionStatus;
   progress?: number;
   elapsed?: number;
+  todoItems?: TodoItem[];
   message?: string;
 }
 
@@ -44,10 +47,12 @@ function isValidSessionId(id: unknown): id is string {
 function validateCwd(cwd: string | undefined): string | undefined {
   if (!cwd) return undefined;
   const resolved = resolve(cwd);
-  const home = (process.env.HOME ?? "/tmp").replace(/\/$/, "");
-  if (!resolved.startsWith(home + "/") && resolved !== home) return undefined;
   if (!existsSync(resolved)) return undefined;
-  return resolved;
+  // Resolve symlinks to prevent path traversal via symlink
+  const real = realpathSync(resolved);
+  const home = (process.env.HOME ?? "/tmp").replace(/\/$/, "");
+  if (!real.startsWith(home + "/") && real !== home) return undefined;
+  return real;
 }
 
 export function createWSServer(
@@ -69,6 +74,10 @@ export function createWSServer(
     });
   }
 
+  const fileWatcher = new FileWatcher((sessionId, items) => {
+    manager.updateTodoItems(sessionId, items);
+  });
+
   const manager = new SessionManager((event: SessionEvent) => {
     switch (event.type) {
       case "output":
@@ -83,11 +92,31 @@ export function createWSServer(
           status: SessionStatus;
           progress?: number;
         };
+        if (status === "running") {
+          // Start watching when session actually starts running
+          const sessions = manager.getAllSessions();
+          const session = sessions.find((s) => s.id === event.sessionId);
+          if (session?.cwd) {
+            fileWatcher.watchSession(session.id, session.cwd);
+          }
+        } else if (status === "done" || status === "error") {
+          fileWatcher.unwatchSession(event.sessionId);
+        }
         broadcast({ type: "status", sessionId: event.sessionId, status, progress });
         break;
       }
       case "created":
         broadcast({ type: "sessions", sessions: manager.getAllSessions() });
+        break;
+      case "removed":
+        fileWatcher.unwatchSession(event.sessionId);
+        break;
+      case "todo_update":
+        broadcast({
+          type: "todo_update",
+          sessionId: event.sessionId,
+          todoItems: event.data as TodoItem[],
+        });
         break;
     }
   });
@@ -229,6 +258,7 @@ export function createWSServer(
 
   function cleanup() {
     clearInterval(elapsedInterval);
+    fileWatcher.destroy();
   }
 
   return { wss, manager, cleanup };

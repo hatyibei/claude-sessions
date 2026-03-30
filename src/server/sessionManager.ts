@@ -5,11 +5,12 @@ import type {
   SessionStatus,
   OutputLine,
   Session,
+  TodoItem,
 } from "../types/session";
 
 export type { SessionStatus, OutputLine };
 
-export type SessionEventType = "created" | "output" | "status" | "removed";
+export type SessionEventType = "created" | "output" | "status" | "removed" | "todo_update";
 
 export interface SessionEvent {
   type: SessionEventType;
@@ -205,6 +206,13 @@ export class SessionManager {
       sessionId: id,
       data: { status: "running" },
     });
+  }
+
+  updateTodoItems(id: string, items: TodoItem[]): void {
+    const managed = this.sessions.get(id);
+    if (!managed) return;
+    managed.info.todoItems = items;
+    this.onEvent({ type: "todo_update", sessionId: id, data: items });
   }
 
   sendCommand(id: string, command: string): void {
