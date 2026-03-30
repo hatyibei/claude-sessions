@@ -1,34 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
-import { getTheme } from "@/lib/theme";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { GlobalCommandBar } from "@/components/GlobalCommandBar";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { NotificationToast } from "@/components/NotificationToast";
 
 function useCurrentTime(): string {
-  const [time, setTime] = useState(() => formatTime());
+  const [time, setTime] = useState("");
 
   useEffect(() => {
-    const timer = setInterval(() => setTime(formatTime()), 1000);
+    const fmt = () => {
+      const now = new Date();
+      return now.toLocaleTimeString("ja-JP", {
+        hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit",
+        timeZoneName: "short",
+      });
+    };
+    setTime(fmt());
+    const timer = setInterval(() => setTime(fmt()), 1000);
     return () => clearInterval(timer);
   }, []);
 
   return time;
-}
-
-function formatTime(): string {
-  const now = new Date();
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const abbr = tz.includes("Tokyo") ? "JST" : tz.split("/").pop() || "UTC";
-  return now.toLocaleTimeString("ja-JP", {
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }) + ` ${abbr}`;
 }
 
 export default function Home() {
@@ -49,96 +44,59 @@ export default function Home() {
     return () => destroyWebSocket();
   }, [initWebSocket, destroyWebSocket]);
 
-  const theme = getTheme(themeMode);
   const currentTime = useCurrentTime();
 
-  const runningCount = sessions.filter((s) => s.status === "running").length;
-  const queuedCount = sessions.filter((s) => s.status === "queued").length;
-  const doneCount = sessions.filter((s) => s.status === "done").length;
+  const { runningCount, queuedCount, doneCount } = useMemo(() => ({
+    runningCount: sessions.filter((s) => s.status === "running").length,
+    queuedCount: sessions.filter((s) => s.status === "queued").length,
+    doneCount: sessions.filter((s) => s.status === "done").length,
+  }), [sessions]);
 
   return (
-    <div
-      className="h-screen flex flex-col overflow-hidden"
-      style={{
-        backgroundColor: theme.bg,
-        color: theme.text,
-      }}
-      data-theme={themeMode}
-    >
-      <header
-        className="flex justify-between items-center px-6 py-3 w-full z-30"
-        style={{
-          backgroundColor: theme.headerBg,
-          borderBottom: `1px solid ${theme.headerBorder}`,
-        }}
-      >
+    <div className="h-screen flex flex-col overflow-hidden bg-th-bg text-th-text" data-theme={themeMode}>
+      {/* Header */}
+      <header className="flex justify-between items-center px-6 py-3 w-full z-30 bg-th-header-bg border-b border-th-header-border">
         <div className="flex items-center gap-6">
-          <h1 className="font-mono text-xl font-bold" style={{ color: theme.primary }}>
+          <h1 className="font-mono text-xl font-bold text-th-primary">
             &rsaquo; claude-sessions
           </h1>
-          <div className="hidden md:flex items-center gap-4 border-l pl-6" style={{ borderColor: theme.border }}>
-            <span className="font-mono text-[10px] flex items-center gap-2" style={{ color: theme.textMuted }}>
-              <span
-                className="w-1.5 h-1.5 rounded-full animate-pulse"
-                style={{ backgroundColor: theme.primary }}
-              />
+          <div className="hidden md:flex items-center gap-4 border-l border-th-border pl-6">
+            <span className="font-mono text-[10px] flex items-center gap-2 text-th-text-muted">
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse bg-th-primary" />
               {runningCount} RUNNING
             </span>
-            <span className="font-mono text-[10px] flex items-center gap-2" style={{ color: theme.textMuted }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.textMuted }} />
+            <span className="font-mono text-[10px] flex items-center gap-2 text-th-text-muted">
+              <span className="w-1.5 h-1.5 rounded-full bg-th-text-muted" />
               {queuedCount} QUEUED
             </span>
-            <span className="font-mono text-[10px] flex items-center gap-2" style={{ color: theme.textMuted }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.tertiary }} />
+            <span className="font-mono text-[10px] flex items-center gap-2 text-th-text-muted">
+              <span className="w-1.5 h-1.5 rounded-full bg-th-tertiary" />
               {doneCount} DONE
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-6">
-          <div className="hidden lg:flex items-center gap-4 font-mono text-[11px]" style={{ color: theme.textMuted }}>
-            <span
-              className="px-1.5 py-0.5 rounded"
-              style={{
-                backgroundColor: theme.surfaceHigh,
-                borderWidth: 1,
-                borderStyle: "solid",
-                borderColor: theme.border,
-                color: theme.textSecondary,
-              }}
-            >
+          <div className="hidden lg:flex items-center gap-4 font-mono text-[11px] text-th-text-muted">
+            <span className="px-1.5 py-0.5 rounded bg-th-surface-high border border-th-border text-th-text-secondary">
               &#x2318;K
             </span>
-            <span
-              className="px-1.5 py-0.5 rounded"
-              style={{
-                backgroundColor: theme.surfaceHigh,
-                borderWidth: 1,
-                borderStyle: "solid",
-                borderColor: theme.border,
-                color: theme.textSecondary,
-              }}
-            >
+            <span className="px-1.5 py-0.5 rounded bg-th-surface-high border border-th-border text-th-text-secondary">
               &#x2318;/
             </span>
-            <div className="w-[1px] h-4 mx-2" style={{ backgroundColor: theme.border }} />
+            <div className="w-[1px] h-4 mx-2 bg-th-border" />
             <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ backgroundColor: wsConnected ? theme.tertiary : theme.textMuted }}
+              className={`w-1.5 h-1.5 rounded-full ${wsConnected ? "bg-th-tertiary" : "bg-th-text-muted"}`}
               title={wsConnected ? "WS Connected" : "WS Disconnected (mock mode)"}
             />
             <span className="tracking-widest">{currentTime}</span>
           </div>
 
           <div className="flex items-center gap-4">
-            <ThemeSwitcher current={themeMode} onChange={setTheme} theme={theme} />
-            <div className="flex items-center gap-3 border-l pl-4" style={{ borderColor: theme.border }}>
+            <ThemeSwitcher current={themeMode} onChange={setTheme} />
+            <div className="flex items-center gap-3 border-l border-th-border pl-4">
               {["schedule", "terminal", "settings"].map((icon) => (
-                <button
-                  key={icon}
-                  className="material-symbols-outlined transition-colors hover:opacity-80"
-                  style={{ color: theme.textMuted }}
-                >
+                <button key={icon} className="material-symbols-outlined transition-colors hover:opacity-80 text-th-text-muted">
                   {icon}
                 </button>
               ))}
@@ -153,12 +111,11 @@ export default function Home() {
         onToggleExpand={toggleExpanded}
         onSendCommand={sendCommand}
         onAction={performAction}
-        theme={theme}
       />
 
-      <GlobalCommandBar onCreateSession={addSession} theme={theme} />
+      <GlobalCommandBar onCreateSession={addSession} />
 
-      <NotificationToast theme={theme} />
+      <NotificationToast />
     </div>
   );
 }

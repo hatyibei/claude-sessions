@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
 import { create } from "zustand";
-import type { ThemeColors } from "@/lib/theme";
 
 interface ToastEntry {
   id: string;
@@ -12,7 +10,6 @@ interface ToastEntry {
 interface ToastState {
   toasts: ToastEntry[];
   addToast: (message: string) => void;
-  removeToast: (id: string) => void;
 }
 
 export const useToastStore = create<ToastState>((set) => ({
@@ -24,16 +21,13 @@ export const useToastStore = create<ToastState>((set) => ({
       set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
     }, 3000);
   },
-  removeToast: (id) => {
-    set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
-  },
 }));
 
 export function showToast(message: string) {
   useToastStore.getState().addToast(message);
 }
 
-export function NotificationToast({ theme }: { theme: ThemeColors }) {
+export function NotificationToast() {
   const toasts = useToastStore((s) => s.toasts);
 
   if (toasts.length === 0) return null;
@@ -43,14 +37,7 @@ export function NotificationToast({ theme }: { theme: ThemeColors }) {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="font-mono text-[11px] px-4 py-2 rounded-lg shadow-lg animate-[fadeIn_0.2s_ease-out]"
-          style={{
-            backgroundColor: theme.surfaceHigh,
-            color: theme.text,
-            borderWidth: 1,
-            borderStyle: "solid",
-            borderColor: theme.primaryBorder,
-          }}
+          className="font-mono text-[11px] px-4 py-2 rounded-lg shadow-lg bg-th-surface-high text-th-text border border-th-primary-border"
         >
           {toast.message}
         </div>

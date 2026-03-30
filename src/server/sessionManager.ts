@@ -1,10 +1,10 @@
+import { randomUUID } from "crypto";
 import * as pty from "node-pty";
 import stripAnsi from "strip-ansi";
 import type {
   SessionStatus,
   OutputLine,
   Session,
-  TodoItem,
 } from "../types/session";
 
 export type { SessionStatus, OutputLine };
@@ -24,11 +24,31 @@ interface ManagedSession {
   pty: pty.IPty | null;
   outputBuffer: OutputLine[];
   elapsedTimer: ReturnType<typeof setInterval> | null;
+  lifetimeTimer: ReturnType<typeof setTimeout> | null;
+}
+
+const MAX_SESSIONS = 10;
+const MAX_OUTPUT_LINES = 500;
+const MAX_SESSION_MS = parseInt(process.env.MAX_SESSION_MS ?? "7200000", 10);
+
+// Minimal env for spawned shells - no secret leakage
+function buildSafeEnv(): Record<string, string> {
+  const safe: Record<string, string> = {};
+  const allowed = [
+    "HOME", "USER", "SHELL", "LANG", "TERM",
+    "PATH", "EDITOR", "VISUAL",
+    "ANTHROPIC_API_KEY",
+    "CLAUDE_CODE_USE_BEDROCK",
+  ];
+  for (const key of allowed) {
+    if (process.env[key]) safe[key] = process.env[key]!;
+  }
+  safe.TERM = safe.TERM || "xterm-color";
+  return safe;
 }
 
 export class SessionManager {
   private sessions = new Map<string, ManagedSession>();
-  private nextId = 1;
   private onEvent: SessionEventHandler;
 
   constructor(onEvent: SessionEventHandler) {
@@ -42,14 +62,20 @@ export class SessionManager {
     }));
   }
 
-  createSession(task: string, cwd?: string): Session {
-    const id = `s${this.nextId++}`;
+  getSessionCount(): number {
+    return this.sessions.size;
+  }
+
+  createSession(task: string, cwd?: string): Session | null {
+    if (this.sessions.size >= MAX_SESSIONS) return null;
+
+    const id = randomUUID();
     const slug = task
       .slice(0, 24)
       .replace(/\s+/g, "-")
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, "");
-    const name = `task/${slug || id}`;
+    const name = `task/${slug || id.slice(0, 8)}`;
 
     const info: Session = {
       id,
@@ -69,6 +95,7 @@ export class SessionManager {
       pty: null,
       outputBuffer: [],
       elapsedTimer: null,
+      lifetimeTimer: null,
     });
 
     this.onEvent({ type: "created", sessionId: id, data: info });
@@ -86,7 +113,7 @@ export class SessionManager {
       cols: 120,
       rows: 30,
       cwd: managed.info.cwd || process.cwd(),
-      env: process.env as Record<string, string>,
+      env: buildSafeEnv(),
     });
 
     managed.pty = ptyProcess;
@@ -98,6 +125,20 @@ export class SessionManager {
       managed.info.elapsed += 1;
     }, 1000);
 
+    // Maximum session lifetime
+    managed.lifetimeTimer = setTimeout(() => {
+      if (managed.pty) {
+        const timeoutLine: OutputLine = {
+          t: "err",
+          v: "\u2715 Session timed out (max lifetime reached)",
+          ts: Date.now(),
+        };
+        managed.outputBuffer.push(timeoutLine);
+        this.onEvent({ type: "output", sessionId: id, data: timeoutLine });
+        managed.pty.kill();
+      }
+    }, MAX_SESSION_MS);
+
     let pendingLines: OutputLine[] = [];
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -106,8 +147,8 @@ export class SessionManager {
         managed.outputBuffer.push(line);
         this.onEvent({ type: "output", sessionId: id, data: line });
       }
-      if (managed.outputBuffer.length > 500) {
-        managed.outputBuffer = managed.outputBuffer.slice(-500);
+      if (managed.outputBuffer.length > MAX_OUTPUT_LINES) {
+        managed.outputBuffer = managed.outputBuffer.slice(-MAX_OUTPUT_LINES);
       }
       pendingLines = [];
       flushTimer = null;
@@ -118,7 +159,12 @@ export class SessionManager {
       const rawLines = cleaned.split("\n").filter((l) => l.trim().length > 0);
 
       for (const raw of rawLines) {
-        pendingLines.push(this.classifyLine(raw));
+        const classified = this.classifyLine(raw);
+        // Cap line length
+        if (classified.v.length > 2048) {
+          classified.v = classified.v.slice(0, 2048) + "...";
+        }
+        pendingLines.push(classified);
       }
 
       if (!flushTimer) {
@@ -127,12 +173,21 @@ export class SessionManager {
     });
 
     ptyProcess.onExit(({ exitCode }) => {
+      // Always clear timer first
+      if (flushTimer) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+      // Then flush remaining
       if (pendingLines.length > 0) flush();
-      if (flushTimer) clearTimeout(flushTimer);
 
       if (managed.elapsedTimer) {
         clearInterval(managed.elapsedTimer);
         managed.elapsedTimer = null;
+      }
+      if (managed.lifetimeTimer) {
+        clearTimeout(managed.lifetimeTimer);
+        managed.lifetimeTimer = null;
       }
 
       managed.info.status = exitCode === 0 ? "done" : "error";
@@ -177,6 +232,10 @@ export class SessionManager {
     if (managed.elapsedTimer) {
       clearInterval(managed.elapsedTimer);
       managed.elapsedTimer = null;
+    }
+    if (managed.lifetimeTimer) {
+      clearTimeout(managed.lifetimeTimer);
+      managed.lifetimeTimer = null;
     }
 
     managed.info.status = "error";
@@ -228,6 +287,7 @@ export class SessionManager {
   destroy(): void {
     this.sessions.forEach((managed) => {
       if (managed.elapsedTimer) clearInterval(managed.elapsedTimer);
+      if (managed.lifetimeTimer) clearTimeout(managed.lifetimeTimer);
       managed.pty?.kill();
     });
     this.sessions.clear();

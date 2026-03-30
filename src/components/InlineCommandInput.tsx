@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { ThemeColors } from "@/lib/theme";
 
 interface Props {
   sessionId: string;
   sessionName: string;
   onSend: (sessionId: string, command: string) => void;
-  theme: ThemeColors;
 }
 
-export function InlineCommandInput({ sessionId, sessionName, onSend, theme }: Props) {
+export function InlineCommandInput({ sessionId, sessionName, onSend }: Props) {
   const [value, setValue] = useState("");
 
   const handleSubmit = useCallback(() => {
@@ -22,12 +20,7 @@ export function InlineCommandInput({ sessionId, sessionName, onSend, theme }: Pr
 
   return (
     <div className="relative">
-      <span
-        className="absolute left-2 top-1.5 font-mono text-[10px]"
-        style={{ color: theme.primary }}
-      >
-        $
-      </span>
+      <span className="absolute left-2 top-1.5 font-mono text-[10px] text-th-primary">$</span>
       <input
         type="text"
         value={value}
@@ -38,14 +31,7 @@ export function InlineCommandInput({ sessionId, sessionName, onSend, theme }: Pr
             handleSubmit();
           }
         }}
-        className="w-full rounded text-[11px] font-mono pl-5 py-1.5 outline-none transition-colors"
-        style={{
-          backgroundColor: theme.inputBg,
-          borderWidth: 1,
-          borderStyle: "solid",
-          borderColor: theme.inputBorder,
-          color: theme.text,
-        }}
+        className="w-full rounded text-[11px] font-mono pl-5 py-1.5 outline-none transition-colors bg-th-input-bg border border-th-input-border text-th-text"
         placeholder={`${sessionName} \u306B\u6307\u793A...`}
       />
     </div>

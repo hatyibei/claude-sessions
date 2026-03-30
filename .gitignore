@@ -22,8 +22,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
-.env*.local
+# env files
+.env
+.env.*
+!.env.example
+
+# ws auth token
+.ws-token
 
 # vercel
 .vercel
