@@ -6,6 +6,7 @@ import type { Session } from "@/types/session";
 import { useSessionStore } from "@/stores/sessionStore";
 import { TerminalPreview } from "./TerminalPreview";
 import { InlineCommandInput } from "./InlineCommandInput";
+import { XTerminal } from "./XTerminal";
 import { ProgressBar } from "./ProgressBar";
 import { TodoChips } from "./TodoChips";
 import { QuickActions } from "./QuickActions";
@@ -125,9 +126,18 @@ function SessionCardInner({ session }: Props) {
 
         <ProgressBar progress={session.progress} status={session.status} />
 
-        {showTerminal && <TerminalPreview output={session.output} expanded={expanded} />}
+        {/* Expanded running session: full xterm.js terminal */}
+        {expanded && session.status === "running" && (
+          <XTerminal sessionId={session.id} />
+        )}
 
-        {showInput && (
+        {/* Collapsed or non-running: classified line preview */}
+        {(!expanded || session.status !== "running") && showTerminal && (
+          <TerminalPreview output={session.output} expanded={expanded} />
+        )}
+
+        {/* Inline command input only when collapsed and running/queued */}
+        {!expanded && showInput && (
           <InlineCommandInput sessionId={session.id} sessionName={session.name} onSend={sendCommand} />
         )}
 

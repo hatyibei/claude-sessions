@@ -12,28 +12,32 @@ const MAX_COMMAND_LENGTH = 4096;
 const MAX_MESSAGES_PER_SECOND = 20;
 
 interface ClientMessage {
-  type: "subscribe" | "command" | "create" | "action";
+  type: "subscribe" | "command" | "create" | "action" | "raw_input" | "resize";
   sessionId?: string;
   command?: string;
+  data?: string;
   task?: string;
   cwd?: string;
   action?: "abort" | "start";
+  cols?: number;
+  rows?: number;
 }
 
 interface ServerMessage {
-  type: "sessions" | "output" | "status" | "notification" | "elapsed" | "todo_update";
+  type: "sessions" | "output" | "raw_output" | "status" | "notification" | "elapsed" | "todo_update";
   sessionId?: string;
   sessions?: unknown[];
   line?: OutputLine;
   status?: SessionStatus;
   progress?: number;
   elapsed?: number;
+  data?: string;
   todoItems?: TodoItem[];
   message?: string;
 }
 
 function isValidType(t: unknown): t is ClientMessage["type"] {
-  return typeof t === "string" && ["subscribe", "command", "create", "action"].includes(t);
+  return typeof t === "string" && ["subscribe", "command", "create", "action", "raw_input", "resize"].includes(t);
 }
 
 function isValidAction(a: unknown): a is ClientMessage["action"] {
@@ -86,6 +90,13 @@ export function createWSServer(
           type: "output",
           sessionId: event.sessionId,
           line: event.data as OutputLine,
+        });
+        break;
+      case "raw_output":
+        broadcast({
+          type: "raw_output",
+          sessionId: event.sessionId,
+          data: event.data as string,
         });
         break;
       case "status": {
@@ -189,17 +200,31 @@ export function createWSServer(
     ws.send(JSON.stringify(initMsg));
 
     ws.on("message", (raw) => {
-      // Rate limiting
-      const timestamps = clientMsgTimestamps.get(ws)!;
-      const now = Date.now();
-      const recent = timestamps.filter((t) => now - t < 1000);
-      if (recent.length >= MAX_MESSAGES_PER_SECOND) return;
-      recent.push(now);
-      clientMsgTimestamps.set(ws, recent);
-
       try {
         const msg: ClientMessage = JSON.parse(raw.toString());
         if (!isValidType(msg.type)) return;
+
+        // raw_input and resize bypass rate limiting (keystroke-level input)
+        if (msg.type === "raw_input") {
+          if (isValidSessionId(msg.sessionId) && typeof msg.data === "string" && msg.data.length <= 1024) {
+            manager.sendRawInput(msg.sessionId, msg.data);
+          }
+          return;
+        }
+        if (msg.type === "resize") {
+          if (isValidSessionId(msg.sessionId) && typeof msg.cols === "number" && typeof msg.rows === "number") {
+            manager.resizePty(msg.sessionId, Math.min(msg.cols, 300), Math.min(msg.rows, 100));
+          }
+          return;
+        }
+
+        // Rate limiting for other message types
+        const timestamps = clientMsgTimestamps.get(ws)!;
+        const now = Date.now();
+        const recent = timestamps.filter((t) => now - t < 1000);
+        if (recent.length >= MAX_MESSAGES_PER_SECOND) return;
+        recent.push(now);
+        clientMsgTimestamps.set(ws, recent);
 
         switch (msg.type) {
           case "create":

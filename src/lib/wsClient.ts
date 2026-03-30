@@ -3,6 +3,7 @@ import type { Session, OutputLine, SessionStatus, TodoItem } from "@/types/sessi
 export interface WSHandlers {
   onSessions: (sessions: Session[]) => void;
   onOutput: (sessionId: string, line: OutputLine) => void;
+  onRawOutput: (sessionId: string, data: string) => void;
   onStatus: (sessionId: string, status: SessionStatus, progress?: number) => void;
   onElapsed: (sessionId: string, elapsed: number) => void;
   onTodoUpdate: (sessionId: string, items: TodoItem[]) => void;
@@ -49,6 +50,9 @@ export class WSClient {
           case "output":
             this.handlers.onOutput(msg.sessionId, msg.line);
             break;
+          case "raw_output":
+            this.handlers.onRawOutput(msg.sessionId, msg.data);
+            break;
           case "status":
             this.handlers.onStatus(msg.sessionId, msg.status, msg.progress);
             break;
@@ -74,17 +78,13 @@ export class WSClient {
       }
     };
 
-    this.ws.onerror = () => {
-      // onclose will fire after onerror
-    };
+    this.ws.onerror = () => {};
   }
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
-
     const delay = this.reconnectDelay;
     this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
-
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
@@ -103,6 +103,14 @@ export class WSClient {
 
   sendCommand(sessionId: string, command: string): void {
     this.send({ type: "command", sessionId, command });
+  }
+
+  sendRawInput(sessionId: string, data: string): void {
+    this.send({ type: "raw_input", sessionId, data });
+  }
+
+  resizePty(sessionId: string, cols: number, rows: number): void {
+    this.send({ type: "resize", sessionId, cols, rows });
   }
 
   performAction(sessionId: string, action: string): void {

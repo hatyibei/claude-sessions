@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import "@xterm/xterm/css/xterm.css";
+
 /* ===== Theme CSS Variables ===== */
 :root, [data-theme="dark"] {
   --c-bg: #09090f;

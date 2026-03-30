@@ -10,7 +10,7 @@ import type {
 
 export type { SessionStatus, OutputLine };
 
-export type SessionEventType = "created" | "output" | "status" | "removed" | "todo_update";
+export type SessionEventType = "created" | "output" | "raw_output" | "status" | "removed" | "todo_update";
 
 export interface SessionEvent {
   type: SessionEventType;
@@ -154,6 +154,9 @@ export class SessionManager {
     };
 
     ptyProcess.onData((data) => {
+      // Emit raw data for xterm.js clients
+      this.onEvent({ type: "raw_output", sessionId: id, data });
+
       const cleaned = stripAnsi(data);
       const rawLines = cleaned.split("\n").filter((l) => l.trim().length > 0);
 
@@ -213,6 +216,20 @@ export class SessionManager {
     if (!managed) return;
     managed.info.todoItems = items;
     this.onEvent({ type: "todo_update", sessionId: id, data: items });
+  }
+
+  // Raw input for xterm.js - sends keystrokes directly to PTY
+  sendRawInput(id: string, data: string): void {
+    const managed = this.sessions.get(id);
+    if (!managed?.pty) return;
+    managed.pty.write(data);
+  }
+
+  // Resize PTY for xterm.js
+  resizePty(id: string, cols: number, rows: number): void {
+    const managed = this.sessions.get(id);
+    if (!managed?.pty) return;
+    managed.pty.resize(cols, rows);
   }
 
   sendCommand(id: string, command: string): void {

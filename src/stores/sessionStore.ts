@@ -21,6 +21,11 @@ interface SessionState {
   setTheme: (theme: ThemeMode) => void;
   addSession: (name: string, task: string) => void;
   sendCommand: (sessionId: string, command: string) => void;
+  sendRawInput: (sessionId: string, data: string) => void;
+  resizePty: (sessionId: string, cols: number, rows: number) => void;
+  rawOutputListeners: Map<string, (data: string) => void>;
+  onRawOutput: (sessionId: string, callback: (data: string) => void) => void;
+  offRawOutput: (sessionId: string) => void;
   performAction: (sessionId: string, action: "abort" | "start") => void;
   expandedCards: Record<string, boolean>;
   toggleExpanded: (sessionId: string) => void;
@@ -139,13 +144,35 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set((state) => ({ sessions: appendOutput(state.sessions, sessionId, line) }));
   },
 
+  sendRawInput: (sessionId, data) => {
+    if (wsClient && get().wsConnected) {
+      wsClient.sendRawInput(sessionId, data);
+    }
+  },
+
+  resizePty: (sessionId, cols, rows) => {
+    if (wsClient && get().wsConnected) {
+      wsClient.resizePty(sessionId, cols, rows);
+    }
+  },
+
+  rawOutputListeners: new Map<string, (data: string) => void>(),
+
+  onRawOutput: (sessionId, callback) => {
+    get().rawOutputListeners.set(sessionId, callback);
+  },
+
+  offRawOutput: (sessionId) => {
+    get().rawOutputListeners.delete(sessionId);
+  },
+
   performAction: (sessionId, action) => {
     if (wsClient && get().wsConnected) {
       wsClient.performAction(sessionId, action);
     }
   },
 
-  expandedCards: { r1: true } as Record<string, boolean>,
+  expandedCards: {} as Record<string, boolean>,
 
   toggleExpanded: (sessionId) => {
     set((state) => {
@@ -188,6 +215,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       },
       onOutput: (sessionId, line) => {
         set((state) => ({ sessions: appendOutput(state.sessions, sessionId, line) }));
+      },
+      onRawOutput: (sessionId, data) => {
+        const listener = get().rawOutputListeners.get(sessionId);
+        if (listener) listener(data);
       },
       onStatus: (sessionId, status, progress) => {
         set((state) => ({
