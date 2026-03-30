@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useDraggable } from "@dnd-kit/core";
 import type { Session } from "@/types/session";
 import { useSessionStore } from "@/stores/sessionStore";
 import { TerminalPreview } from "./TerminalPreview";
@@ -47,6 +48,14 @@ function SessionCardInner({ session }: Props) {
   const sendCommand = useSessionStore((s) => s.sendCommand);
   const performAction = useSessionStore((s) => s.performAction);
 
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: session.id,
+  });
+
+  const dragStyle = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 }
+    : undefined;
+
   const isActive = session.status === "running" && session.isMain;
   const showInput = session.status === "running" || session.status === "queued";
   const showTerminal = session.output.length > 0;
@@ -55,8 +64,12 @@ function SessionCardInner({ session }: Props) {
 
   return (
     <div
+      ref={setNodeRef}
+      style={dragStyle}
+      {...attributes}
+      {...listeners}
       data-session-id={session.id}
-      className={`rounded-lg transition-all overflow-hidden bg-th-card border ${
+      className={`rounded-lg transition-all overflow-hidden bg-th-card border ${isDragging ? "opacity-50" : ""} ${
         isActive
           ? "border-th-primary-border shadow-[0_0_12px_var(--c-primary-bg)]"
           : session.status === "done"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useDroppable } from "@dnd-kit/core";
 import type { Session, SessionStatus } from "@/types/session";
 import { SessionCard } from "./SessionCard";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -29,11 +30,18 @@ const COUNT_BG: Record<string, string> = {
 };
 
 export function Column({ title, status, sessions }: Props) {
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+
   const titleClass = TITLE_COLOR[status] || "text-th-text-muted";
   const countClass = COUNT_BG[status] || "bg-th-surface-high";
 
   return (
-    <section className="flex-shrink-0 w-[380px] flex flex-col gap-3">
+    <section
+      ref={setNodeRef}
+      className={`flex-shrink-0 w-[380px] flex flex-col gap-3 rounded-lg transition-colors ${
+        isOver ? "bg-th-primary-bg/50" : ""
+      }`}
+    >
       <div className="flex items-center justify-between px-2 mb-1">
         <div className="flex items-center gap-2">
           <span className={`font-mono text-xs font-bold uppercase tracking-tighter ${titleClass}`}>

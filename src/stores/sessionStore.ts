@@ -24,6 +24,7 @@ interface SessionState {
   performAction: (sessionId: string, action: "abort" | "start") => void;
   expandedCards: Record<string, boolean>;
   toggleExpanded: (sessionId: string) => void;
+  moveSession: (sessionId: string, newStatus: SessionStatus) => void;
   initWebSocket: () => void;
   destroyWebSocket: () => void;
 }
@@ -155,6 +156,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       }
       return { expandedCards: { ...state.expandedCards, [sessionId]: true } };
     });
+  },
+
+  moveSession: (sessionId, newStatus) => {
+    set((state) => ({
+      sessions: state.sessions.map((s) =>
+        s.id === sessionId ? { ...s, status: newStatus } : s
+      ),
+    }));
   },
 
   initWebSocket: async () => {
