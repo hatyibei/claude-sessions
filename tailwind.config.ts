@@ -55,8 +55,7 @@ const config: Config = {
       fontFamily: {
         mono: ["JetBrains Mono", "monospace"],
         jp: ["Noto Sans JP", "sans-serif"],
-        headline: ["Space Grotesk", "sans-serif"],
-        body: ["Inter", "Noto Sans JP", "sans-serif"],
+        body: ["Noto Sans JP", "sans-serif"],
       },
     },
   },

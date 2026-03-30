@@ -107,29 +107,41 @@ export function SessionCard({ session, expanded, onToggleExpand, onSendCommand, 
               {session.task}
             </p>
           </div>
-          <div className="text-right flex-shrink-0">
-            {session.elapsed > 0 && (
-              <div
-                className="font-mono text-[10px]"
-                style={{
-                  color: session.status === "running" ? theme.primary
-                    : session.status === "done" ? `${theme.tertiary}b3`
-                      : theme.textMuted,
-                }}
-              >
-                {formatElapsed(session.elapsed)}
-              </div>
-            )}
-            {totalTasks > 0 && (
-              <div className="font-mono text-[9px]" style={{ color: theme.textMuted }}>
-                TASKS: {doneTasks}/{totalTasks}
-              </div>
-            )}
-            {session.id && !session.isMain && session.status === "queued" && (
-              <span className="font-mono text-[10px]" style={{ color: theme.textMuted }}>
-                ID: {session.id.slice(0, 4)}
-              </span>
-            )}
+          <div className="flex items-start gap-2 flex-shrink-0">
+            <div className="text-right">
+              {session.elapsed > 0 && (
+                <div
+                  className="font-mono text-[10px]"
+                  style={{
+                    color: session.status === "running" ? theme.primary
+                      : session.status === "done" ? `${theme.tertiary}b3`
+                        : theme.textMuted,
+                  }}
+                >
+                  {formatElapsed(session.elapsed)}
+                </div>
+              )}
+              {totalTasks > 0 && (
+                <div className="font-mono text-[9px]" style={{ color: theme.textMuted }}>
+                  TASKS: {doneTasks}/{totalTasks}
+                </div>
+              )}
+              {session.id && !session.isMain && session.status === "queued" && (
+                <span className="font-mono text-[10px]" style={{ color: theme.textMuted }}>
+                  ID: {session.id.slice(0, 4)}
+                </span>
+              )}
+            </div>
+            <span
+              className="material-symbols-outlined transition-transform duration-200"
+              style={{
+                color: theme.textMuted,
+                transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+                fontSize: "14px",
+              }}
+            >
+              expand_more
+            </span>
           </div>
         </div>
 
@@ -138,7 +150,7 @@ export function SessionCard({ session, expanded, onToggleExpand, onSendCommand, 
 
         {/* Terminal output */}
         {showTerminal && (
-          <TerminalPreview output={session.output} theme={theme} />
+          <TerminalPreview output={session.output} expanded={expanded} theme={theme} />
         )}
 
         {/* Inline command input */}

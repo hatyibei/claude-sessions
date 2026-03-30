@@ -5,7 +5,7 @@ import type { ThemeColors } from "@/lib/theme";
 
 interface Props {
   output: OutputLine[];
-  maxLines?: number;
+  expanded?: boolean;
   theme: ThemeColors;
 }
 
@@ -22,14 +22,16 @@ function lineColor(t: OutputLine["t"], theme: ThemeColors): string {
   }
 }
 
-export function TerminalPreview({ output, maxLines = 4, theme }: Props) {
-  const lines = output.slice(-maxLines);
+export function TerminalPreview({ output, expanded = false, theme }: Props) {
+  const lines = expanded ? output : output.slice(-3);
 
   if (lines.length === 0) return null;
 
   return (
     <div
-      className="rounded p-2 mb-3 font-mono text-[10px] leading-relaxed terminal-scroll overflow-y-auto max-h-24"
+      className={`rounded p-2 mb-3 font-mono text-[10px] leading-relaxed terminal-scroll transition-[max-height] duration-300 ease-in-out ${
+        expanded ? "max-h-[200px] overflow-y-auto" : "max-h-14 overflow-hidden"
+      }`}
       style={{
         backgroundColor: theme.terminal,
         borderWidth: 1,
@@ -46,6 +48,12 @@ export function TerminalPreview({ output, maxLines = 4, theme }: Props) {
             />
           )}
           <span>{line.v}</span>
+          {i === lines.length - 1 && line.t === "run" && (
+            <span
+              className="terminal-cursor inline-block w-[6px] h-[12px] ml-0.5 align-middle flex-shrink-0"
+              style={{ backgroundColor: theme.terminalRun }}
+            />
+          )}
         </div>
       ))}
     </div>

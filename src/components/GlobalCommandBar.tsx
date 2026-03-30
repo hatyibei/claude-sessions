@@ -81,27 +81,6 @@ export function GlobalCommandBar({ onCreateSession, theme }: Props) {
         </div>
       </div>
 
-      {/* Bottom Navigation */}
-      <nav className="flex gap-1 ml-4">
-        {[
-          { icon: "hourglass_empty", label: "\u5F85\u6A5F\u4E2D", active: false },
-          { icon: "play_arrow", label: "\u5B9F\u884C\u4E2D", active: true },
-          { icon: "check_circle", label: "\u5B8C\u4E86", active: false },
-          { icon: "terminal", label: "\u8A2D\u5B9A", active: false },
-        ].map(({ icon, label, active }) => (
-          <div
-            key={label}
-            className="flex flex-col items-center justify-center p-2 min-w-[60px] cursor-pointer rounded-lg transition-all"
-            style={{
-              color: active ? theme.primary : theme.textMuted,
-              backgroundColor: active ? theme.primaryBg : "transparent",
-            }}
-          >
-            <span className="material-symbols-outlined">{icon}</span>
-            <span className="font-mono text-[10px] mt-1">{label}</span>
-          </div>
-        ))}
-      </nav>
     </div>
   );
 }
