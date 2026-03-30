@@ -1,15 +1,20 @@
 import { create } from "zustand";
 import type { Session, SessionStatus, OutputLine, ThemeMode } from "@/types/session";
+import { WSClient } from "@/lib/wsClient";
 
 interface SessionState {
   sessions: Session[];
   theme: ThemeMode;
+  wsConnected: boolean;
+  wsClient: WSClient | null;
   setTheme: (theme: ThemeMode) => void;
   addSession: (name: string, task: string) => void;
   sendCommand: (sessionId: string, command: string) => void;
   updateStatus: (sessionId: string, status: SessionStatus) => void;
   expandedCards: Set<string>;
   toggleExpanded: (sessionId: string) => void;
+  initWebSocket: () => void;
+  destroyWebSocket: () => void;
 }
 
 const now = () => Date.now();
@@ -130,10 +135,20 @@ let nextId = 100;
 export const useSessionStore = create<SessionState>((set, get) => ({
   sessions: MOCK_SESSIONS,
   theme: "dark" as ThemeMode,
+  wsConnected: false,
+  wsClient: null,
 
   setTheme: (theme) => set({ theme }),
 
   addSession: (name, task) => {
+    const { wsClient, wsConnected } = get();
+
+    if (wsConnected && wsClient) {
+      wsClient.createSession(task || name);
+      return;
+    }
+
+    // Fallback: local mock
     const id = `s${nextId++}`;
     const session: Session = {
       id,
@@ -150,6 +165,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   sendCommand: (sessionId, command) => {
+    const { wsClient, wsConnected } = get();
+
+    if (wsConnected && wsClient) {
+      wsClient.sendCommand(sessionId, command);
+      return;
+    }
+
+    // Fallback: local mock
     const line: OutputLine = { t: "user", v: `> ${command}`, ts: Date.now() };
     set((state) => ({
       sessions: state.sessions.map((s) =>
@@ -178,5 +201,53 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       }
       return { expandedCards: next };
     });
+  },
+
+  initWebSocket: () => {
+    if (typeof window === "undefined") return;
+    if (get().wsClient) return;
+
+    const client = new WSClient("ws://localhost:3001", {
+      onSessions: (sessions) => {
+        set({ sessions });
+      },
+      onOutput: (sessionId, line) => {
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === sessionId ? { ...s, output: [...s.output, line] } : s
+          ),
+        }));
+      },
+      onStatus: (sessionId, status, progress) => {
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === sessionId
+              ? { ...s, status, ...(progress !== undefined ? { progress } : {}) }
+              : s
+          ),
+        }));
+      },
+      onNotification: () => {
+        // Could show toast here
+      },
+      onConnectionChange: (connected) => {
+        set({ wsConnected: connected });
+        // When disconnected, revert to mock data
+        if (!connected) {
+          set({ sessions: MOCK_SESSIONS });
+        }
+      },
+    });
+
+    set({ wsClient: client });
+    client.connect();
+  },
+
+  destroyWebSocket: () => {
+    const { wsClient } = get();
+    if (wsClient) {
+      wsClient.disconnect();
+      set({ wsClient: null, wsConnected: false });
+    }
   },
 }));

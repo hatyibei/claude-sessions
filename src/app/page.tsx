@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { getTheme } from "@/lib/theme";
 import { KanbanBoard } from "@/components/KanbanBoard";
@@ -25,6 +26,14 @@ export default function Home() {
   const sendCommand = useSessionStore((s) => s.sendCommand);
   const expandedCards = useSessionStore((s) => s.expandedCards);
   const toggleExpanded = useSessionStore((s) => s.toggleExpanded);
+  const wsConnected = useSessionStore((s) => s.wsConnected);
+  const initWebSocket = useSessionStore((s) => s.initWebSocket);
+  const destroyWebSocket = useSessionStore((s) => s.destroyWebSocket);
+
+  useEffect(() => {
+    initWebSocket();
+    return () => destroyWebSocket();
+  }, [initWebSocket, destroyWebSocket]);
 
   const theme = getTheme(themeMode);
 
@@ -99,6 +108,11 @@ export default function Home() {
               &#x2318;/
             </span>
             <div className="w-[1px] h-4 mx-2" style={{ backgroundColor: theme.border }} />
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: wsConnected ? theme.tertiary : theme.textMuted }}
+              title={wsConnected ? "WS Connected" : "WS Disconnected (mock mode)"}
+            />
             <span className="tracking-widest">{formatTime()}</span>
           </div>
 
