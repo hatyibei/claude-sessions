@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import type { Session } from "@/types/session";
 import type { ThemeColors } from "@/lib/theme";
 import { TerminalPreview } from "./TerminalPreview";
@@ -14,6 +13,7 @@ interface Props {
   expanded: boolean;
   onToggleExpand: () => void;
   onSendCommand: (sessionId: string, command: string) => void;
+  onAction: (sessionId: string, action: "pause" | "abort" | "start" | "rerun") => void;
   theme: ThemeColors;
 }
 
@@ -21,6 +21,13 @@ function formatElapsed(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
+}
+
+function withAlpha(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function statusDot(session: Session, theme: ThemeColors) {
@@ -43,22 +50,17 @@ function statusDot(session: Session, theme: ThemeColors) {
   );
 }
 
-export function SessionCard({ session, expanded, onToggleExpand, onSendCommand, theme }: Props) {
+export function SessionCard({ session, expanded, onToggleExpand, onSendCommand, onAction, theme }: Props) {
   const isActive = session.status === "running" && session.isMain;
   const showInput = session.status === "running" || session.status === "queued";
   const showTerminal = session.output.length > 0;
   const totalTasks = session.todoItems.length;
   const doneTasks = session.todoItems.filter((t) => t.done).length;
 
-  const handleAction = useCallback((action: "pause" | "abort" | "rerun") => {
-    // Mock: just log for now
-    console.log(`Action: ${action} on ${session.id}`);
-  }, [session.id]);
-
   const cardBorder = isActive
     ? theme.primaryBorder
     : session.status === "done"
-      ? `${theme.tertiary}33`
+      ? withAlpha(theme.tertiary, 0.2)
       : theme.border;
 
   return (
@@ -69,10 +71,9 @@ export function SessionCard({ session, expanded, onToggleExpand, onSendCommand, 
         borderWidth: 1,
         borderStyle: "solid",
         borderColor: cardBorder,
-        ...(isActive ? { boxShadow: `0 0 12px ${theme.primary}15` } : {}),
+        ...(isActive ? { boxShadow: `0 0 12px ${withAlpha(theme.primary, 0.08)}` } : {}),
       }}
     >
-      {/* Gradient top bar for active card */}
       {isActive && (
         <div
           className="h-[3px] w-full"
@@ -83,7 +84,6 @@ export function SessionCard({ session, expanded, onToggleExpand, onSendCommand, 
       )}
 
       <div className="p-3">
-        {/* Header - clickable to expand */}
         <div
           className="flex items-start justify-between mb-2 cursor-pointer"
           onClick={onToggleExpand}
@@ -114,7 +114,7 @@ export function SessionCard({ session, expanded, onToggleExpand, onSendCommand, 
                   className="font-mono text-[10px]"
                   style={{
                     color: session.status === "running" ? theme.primary
-                      : session.status === "done" ? `${theme.tertiary}b3`
+                      : session.status === "done" ? withAlpha(theme.tertiary, 0.7)
                         : theme.textMuted,
                   }}
                 >
@@ -145,15 +145,12 @@ export function SessionCard({ session, expanded, onToggleExpand, onSendCommand, 
           </div>
         </div>
 
-        {/* Progress bar */}
         <ProgressBar progress={session.progress} status={session.status} theme={theme} />
 
-        {/* Terminal output */}
         {showTerminal && (
           <TerminalPreview output={session.output} expanded={expanded} theme={theme} />
         )}
 
-        {/* Inline command input */}
         {showInput && (
           <InlineCommandInput
             sessionId={session.id}
@@ -163,11 +160,14 @@ export function SessionCard({ session, expanded, onToggleExpand, onSendCommand, 
           />
         )}
 
-        {/* Expanded section */}
         {expanded && (
           <div className="mt-3 pt-3" style={{ borderTop: `1px dashed ${theme.border}` }}>
             <TodoChips items={session.todoItems} theme={theme} />
-            <QuickActions status={session.status} theme={theme} onAction={handleAction} />
+            <QuickActions
+              status={session.status}
+              theme={theme}
+              onAction={(action) => onAction(session.id, action)}
+            />
           </div>
         )}
       </div>

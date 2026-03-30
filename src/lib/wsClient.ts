@@ -4,6 +4,7 @@ export interface WSHandlers {
   onSessions: (sessions: Session[]) => void;
   onOutput: (sessionId: string, line: OutputLine) => void;
   onStatus: (sessionId: string, status: SessionStatus, progress?: number) => void;
+  onElapsed: (sessionId: string, elapsed: number) => void;
   onNotification: (message: string) => void;
   onConnectionChange: (connected: boolean) => void;
 }
@@ -50,6 +51,9 @@ export class WSClient {
           case "status":
             this.handlers.onStatus(msg.sessionId, msg.status, msg.progress);
             break;
+          case "elapsed":
+            this.handlers.onElapsed(msg.sessionId, msg.elapsed);
+            break;
           case "notification":
             this.handlers.onNotification(msg.message);
             break;
@@ -74,11 +78,13 @@ export class WSClient {
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
 
+    const delay = this.reconnectDelay;
+    this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
+
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
       this.connect();
-    }, this.reconnectDelay);
+    }, delay);
   }
 
   send(msg: Record<string, unknown>): void {

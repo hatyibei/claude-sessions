@@ -11,6 +11,7 @@ interface Props {
   expandedCards: Set<string>;
   onToggleExpand: (id: string) => void;
   onSendCommand: (sessionId: string, command: string) => void;
+  onAction: (sessionId: string, action: "pause" | "abort" | "start" | "rerun") => void;
   theme: ThemeColors;
 }
 
@@ -23,7 +24,7 @@ function columnIcon(status: SessionStatus): string {
   }
 }
 
-export function Column({ title, status, sessions, expandedCards, onToggleExpand, onSendCommand, theme }: Props) {
+export function Column({ title, status, sessions, expandedCards, onToggleExpand, onSendCommand, onAction, theme }: Props) {
   const titleColor =
     status === "running" ? theme.primary
       : status === "done" ? theme.tertiary
@@ -66,6 +67,7 @@ export function Column({ title, status, sessions, expandedCards, onToggleExpand,
           expanded={expandedCards.has(session.id)}
           onToggleExpand={() => onToggleExpand(session.id)}
           onSendCommand={onSendCommand}
+          onAction={onAction}
           theme={theme}
         />
       ))}

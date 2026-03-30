@@ -40,7 +40,7 @@ export function TerminalPreview({ output, expanded = false, theme }: Props) {
       }}
     >
       {lines.map((line, i) => (
-        <div key={i} className="flex items-start gap-2" style={{ color: lineColor(line.t, theme) }}>
+        <div key={`${line.ts}-${i}`} className="flex items-start gap-2" style={{ color: lineColor(line.t, theme) }}>
           {line.t === "run" && (
             <span
               className="animate-spinner inline-block h-2 w-2 border border-current border-t-transparent rounded-full mt-0.5 flex-shrink-0"

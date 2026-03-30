@@ -1,34 +1,40 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
+import { create } from "zustand";
 import type { ThemeColors } from "@/lib/theme";
 
-interface Toast {
+interface ToastEntry {
   id: string;
   message: string;
 }
 
-let addToastFn: ((message: string) => void) | null = null;
+interface ToastState {
+  toasts: ToastEntry[];
+  addToast: (message: string) => void;
+  removeToast: (id: string) => void;
+}
+
+export const useToastStore = create<ToastState>((set) => ({
+  toasts: [],
+  addToast: (message) => {
+    const id = Math.random().toString(36).slice(2);
+    set((state) => ({ toasts: [...state.toasts, { id, message }] }));
+    setTimeout(() => {
+      set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
+    }, 3000);
+  },
+  removeToast: (id) => {
+    set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
+  },
+}));
 
 export function showToast(message: string) {
-  addToastFn?.(message);
+  useToastStore.getState().addToast(message);
 }
 
 export function NotificationToast({ theme }: { theme: ThemeColors }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
-  const addToast = useCallback((message: string) => {
-    const id = Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { id, message }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
-  }, []);
-
-  useEffect(() => {
-    addToastFn = addToast;
-    return () => { addToastFn = null; };
-  }, [addToast]);
+  const toasts = useToastStore((s) => s.toasts);
 
   if (toasts.length === 0) return null;
 

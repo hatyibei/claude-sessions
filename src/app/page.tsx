@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { getTheme } from "@/lib/theme";
 import { KanbanBoard } from "@/components/KanbanBoard";
@@ -8,14 +8,27 @@ import { GlobalCommandBar } from "@/components/GlobalCommandBar";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { NotificationToast } from "@/components/NotificationToast";
 
+function useCurrentTime(): string {
+  const [time, setTime] = useState(() => formatTime());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(formatTime()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return time;
+}
+
 function formatTime(): string {
   const now = new Date();
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const abbr = tz.includes("Tokyo") ? "JST" : tz.split("/").pop() || "UTC";
   return now.toLocaleTimeString("ja-JP", {
     hour12: false,
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-  }) + " JST";
+  }) + ` ${abbr}`;
 }
 
 export default function Home() {
@@ -24,6 +37,7 @@ export default function Home() {
   const setTheme = useSessionStore((s) => s.setTheme);
   const addSession = useSessionStore((s) => s.addSession);
   const sendCommand = useSessionStore((s) => s.sendCommand);
+  const performAction = useSessionStore((s) => s.performAction);
   const expandedCards = useSessionStore((s) => s.expandedCards);
   const toggleExpanded = useSessionStore((s) => s.toggleExpanded);
   const wsConnected = useSessionStore((s) => s.wsConnected);
@@ -36,6 +50,7 @@ export default function Home() {
   }, [initWebSocket, destroyWebSocket]);
 
   const theme = getTheme(themeMode);
+  const currentTime = useCurrentTime();
 
   const runningCount = sessions.filter((s) => s.status === "running").length;
   const queuedCount = sessions.filter((s) => s.status === "queued").length;
@@ -50,7 +65,6 @@ export default function Home() {
       }}
       data-theme={themeMode}
     >
-      {/* Header */}
       <header
         className="flex justify-between items-center px-6 py-3 w-full z-30"
         style={{
@@ -113,7 +127,7 @@ export default function Home() {
               style={{ backgroundColor: wsConnected ? theme.tertiary : theme.textMuted }}
               title={wsConnected ? "WS Connected" : "WS Disconnected (mock mode)"}
             />
-            <span className="tracking-widest">{formatTime()}</span>
+            <span className="tracking-widest">{currentTime}</span>
           </div>
 
           <div className="flex items-center gap-4">
@@ -133,19 +147,17 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Kanban Board */}
       <KanbanBoard
         sessions={sessions}
         expandedCards={expandedCards}
         onToggleExpand={toggleExpanded}
         onSendCommand={sendCommand}
+        onAction={performAction}
         theme={theme}
       />
 
-      {/* Global Command Bar */}
       <GlobalCommandBar onCreateSession={addSession} theme={theme} />
 
-      {/* Toast Notifications */}
       <NotificationToast theme={theme} />
     </div>
   );

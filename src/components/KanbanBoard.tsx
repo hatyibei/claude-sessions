@@ -10,10 +10,11 @@ interface Props {
   expandedCards: Set<string>;
   onToggleExpand: (id: string) => void;
   onSendCommand: (sessionId: string, command: string) => void;
+  onAction: (sessionId: string, action: "pause" | "abort" | "start" | "rerun") => void;
   theme: ThemeColors;
 }
 
-export function KanbanBoard({ sessions, expandedCards, onToggleExpand, onSendCommand, theme }: Props) {
+export function KanbanBoard({ sessions, expandedCards, onToggleExpand, onSendCommand, onAction, theme }: Props) {
   const queued = useMemo(() => sessions.filter((s) => s.status === "queued"), [sessions]);
   const running = useMemo(() => sessions.filter((s) => s.status === "running" || s.status === "error"), [sessions]);
   const done = useMemo(() => sessions.filter((s) => s.status === "done"), [sessions]);
@@ -30,6 +31,7 @@ export function KanbanBoard({ sessions, expandedCards, onToggleExpand, onSendCom
         expandedCards={expandedCards}
         onToggleExpand={onToggleExpand}
         onSendCommand={onSendCommand}
+        onAction={onAction}
         theme={theme}
       />
       <Column
@@ -39,6 +41,7 @@ export function KanbanBoard({ sessions, expandedCards, onToggleExpand, onSendCom
         expandedCards={expandedCards}
         onToggleExpand={onToggleExpand}
         onSendCommand={onSendCommand}
+        onAction={onAction}
         theme={theme}
       />
       <Column
@@ -48,6 +51,7 @@ export function KanbanBoard({ sessions, expandedCards, onToggleExpand, onSendCom
         expandedCards={expandedCards}
         onToggleExpand={onToggleExpand}
         onSendCommand={onSendCommand}
+        onAction={onAction}
         theme={theme}
       />
     </main>

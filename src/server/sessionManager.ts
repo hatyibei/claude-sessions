@@ -1,36 +1,13 @@
 import * as pty from "node-pty";
 import stripAnsi from "strip-ansi";
+import type {
+  SessionStatus,
+  OutputLine,
+  Session,
+  TodoItem,
+} from "../types/session";
 
-export type SessionStatus = "queued" | "running" | "done" | "error";
-
-export interface OutputLine {
-  t: "cmd" | "ok" | "run" | "info" | "err" | "wait" | "user";
-  v: string;
-  ts: number;
-}
-
-export interface SessionInfo {
-  id: string;
-  name: string;
-  status: SessionStatus;
-  isMain: boolean;
-  task: string;
-  elapsed: number;
-  output: OutputLine[];
-  progress: number;
-  todoItems: { text: string; done: boolean }[];
-  pid?: number;
-  cwd?: string;
-  startedAt?: number;
-  finishedAt?: number;
-}
-
-interface ManagedSession {
-  info: SessionInfo;
-  pty: pty.IPty | null;
-  outputBuffer: OutputLine[];
-  elapsedTimer: ReturnType<typeof setInterval> | null;
-}
+export type { SessionStatus, OutputLine };
 
 export type SessionEventType = "created" | "output" | "status" | "removed";
 
@@ -42,6 +19,13 @@ export interface SessionEvent {
 
 export type SessionEventHandler = (event: SessionEvent) => void;
 
+interface ManagedSession {
+  info: Session;
+  pty: pty.IPty | null;
+  outputBuffer: OutputLine[];
+  elapsedTimer: ReturnType<typeof setInterval> | null;
+}
+
 export class SessionManager {
   private sessions = new Map<string, ManagedSession>();
   private nextId = 1;
@@ -51,14 +35,14 @@ export class SessionManager {
     this.onEvent = onEvent;
   }
 
-  getAllSessions(): SessionInfo[] {
+  getAllSessions(): Session[] {
     return Array.from(this.sessions.values()).map((m) => ({
       ...m.info,
       output: m.outputBuffer.slice(-50),
     }));
   }
 
-  createSession(task: string, cwd?: string): SessionInfo {
+  createSession(task: string, cwd?: string): Session {
     const id = `s${this.nextId++}`;
     const slug = task
       .slice(0, 24)
@@ -67,7 +51,7 @@ export class SessionManager {
       .replace(/[^a-z0-9-]/g, "");
     const name = `task/${slug || id}`;
 
-    const info: SessionInfo = {
+    const info: Session = {
       id,
       name,
       status: "queued",
@@ -110,12 +94,10 @@ export class SessionManager {
     managed.info.startedAt = Date.now();
     managed.info.pid = ptyProcess.pid;
 
-    // Elapsed timer
     managed.elapsedTimer = setInterval(() => {
       managed.info.elapsed += 1;
     }, 1000);
 
-    // Output buffering: flush every 100ms
     let pendingLines: OutputLine[] = [];
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -124,7 +106,6 @@ export class SessionManager {
         managed.outputBuffer.push(line);
         this.onEvent({ type: "output", sessionId: id, data: line });
       }
-      // Keep buffer bounded
       if (managed.outputBuffer.length > 500) {
         managed.outputBuffer = managed.outputBuffer.slice(-500);
       }
@@ -146,7 +127,6 @@ export class SessionManager {
     });
 
     ptyProcess.onExit(({ exitCode }) => {
-      // Flush remaining
       if (pendingLines.length > 0) flush();
       if (flushTimer) clearTimeout(flushTimer);
 
@@ -199,7 +179,7 @@ export class SessionManager {
       managed.elapsedTimer = null;
     }
 
-    managed.info.status = "done";
+    managed.info.status = "error";
     managed.info.finishedAt = Date.now();
 
     const errLine: OutputLine = { t: "err", v: "\u2715 Aborted by user", ts: Date.now() };
@@ -209,7 +189,7 @@ export class SessionManager {
     this.onEvent({
       type: "status",
       sessionId: id,
-      data: { status: "done", progress: managed.info.progress },
+      data: { status: "error", progress: managed.info.progress },
     });
   }
 

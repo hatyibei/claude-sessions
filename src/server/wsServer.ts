@@ -1,6 +1,10 @@
 import { WebSocketServer, WebSocket } from "ws";
+import { resolve } from "path";
+import { existsSync } from "fs";
 import { SessionManager } from "./sessionManager";
 import type { SessionEvent, OutputLine, SessionStatus } from "./sessionManager";
+
+const MAX_COMMAND_LENGTH = 4096;
 
 interface ClientMessage {
   type: "subscribe" | "command" | "create" | "action";
@@ -12,13 +16,23 @@ interface ClientMessage {
 }
 
 interface ServerMessage {
-  type: "sessions" | "output" | "status" | "notification";
+  type: "sessions" | "output" | "status" | "notification" | "elapsed";
   sessionId?: string;
   sessions?: unknown[];
   line?: OutputLine;
   status?: SessionStatus;
   progress?: number;
+  elapsed?: number;
   message?: string;
+}
+
+function validateCwd(cwd: string | undefined): string | undefined {
+  if (!cwd) return undefined;
+  const resolved = resolve(cwd);
+  const home = process.env.HOME || process.env.USERPROFILE || "/";
+  if (!resolved.startsWith(home)) return undefined;
+  if (!existsSync(resolved)) return undefined;
+  return resolved;
 }
 
 export function createWSServer(port: number = 3001): {
@@ -29,11 +43,11 @@ export function createWSServer(port: number = 3001): {
 
   function broadcast(msg: ServerMessage): void {
     const data = JSON.stringify(msg);
-    for (const client of clients) {
+    clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(data);
       }
-    }
+    });
   }
 
   const manager = new SessionManager((event: SessionEvent) => {
@@ -59,7 +73,21 @@ export function createWSServer(port: number = 3001): {
     }
   });
 
-  const wss = new WebSocketServer({ port });
+  // Broadcast elapsed updates every 5 seconds for running sessions
+  setInterval(() => {
+    const sessions = manager.getAllSessions();
+    for (const session of sessions) {
+      if (session.status === "running") {
+        broadcast({
+          type: "elapsed",
+          sessionId: session.id,
+          elapsed: session.elapsed,
+        });
+      }
+    }
+  }, 5000);
+
+  const wss = new WebSocketServer({ port, host: "127.0.0.1" });
 
   wss.on("connection", (ws) => {
     clients.add(ws);
@@ -77,13 +105,19 @@ export function createWSServer(port: number = 3001): {
 
         switch (msg.type) {
           case "create":
-            if (msg.task) {
-              manager.createSession(msg.task, msg.cwd);
+            if (msg.task && msg.task.length <= MAX_COMMAND_LENGTH) {
+              const safeCwd = validateCwd(msg.cwd);
+              const session = manager.createSession(msg.task, safeCwd);
+              manager.startSession(session.id);
             }
             break;
 
           case "command":
-            if (msg.sessionId && msg.command) {
+            if (
+              msg.sessionId &&
+              msg.command &&
+              msg.command.length <= MAX_COMMAND_LENGTH
+            ) {
               manager.sendCommand(msg.sessionId, msg.command);
             }
             break;
@@ -106,10 +140,6 @@ export function createWSServer(port: number = 3001): {
       }
     });
 
-    ws.on("close", () => {
-      clients.delete(ws);
-    });
-
     // Heartbeat
     const pingInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -118,10 +148,11 @@ export function createWSServer(port: number = 3001): {
     }, 30000);
 
     ws.on("close", () => {
+      clients.delete(ws);
       clearInterval(pingInterval);
     });
   });
 
-  console.log(`WebSocket server running on ws://localhost:${port}`);
+  console.log(`WebSocket server running on ws://127.0.0.1:${port}`);
   return { wss, manager };
 }

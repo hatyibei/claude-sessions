@@ -1,15 +1,18 @@
 import { create } from "zustand";
 import type { Session, SessionStatus, OutputLine, ThemeMode } from "@/types/session";
 import { WSClient } from "@/lib/wsClient";
+import { showToast } from "@/components/NotificationToast";
 
 interface SessionState {
   sessions: Session[];
   theme: ThemeMode;
   wsConnected: boolean;
   wsClient: WSClient | null;
+  hasReceivedRealSessions: boolean;
   setTheme: (theme: ThemeMode) => void;
   addSession: (name: string, task: string) => void;
   sendCommand: (sessionId: string, command: string) => void;
+  performAction: (sessionId: string, action: "pause" | "abort" | "start" | "rerun") => void;
   updateStatus: (sessionId: string, status: SessionStatus) => void;
   expandedCards: Set<string>;
   toggleExpanded: (sessionId: string) => void;
@@ -137,6 +140,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   theme: "dark" as ThemeMode,
   wsConnected: false,
   wsClient: null,
+  hasReceivedRealSessions: false,
 
   setTheme: (theme) => set({ theme }),
 
@@ -148,7 +152,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       return;
     }
 
-    // Fallback: local mock
     const id = `s${nextId++}`;
     const session: Session = {
       id,
@@ -172,13 +175,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       return;
     }
 
-    // Fallback: local mock
     const line: OutputLine = { t: "user", v: `> ${command}`, ts: Date.now() };
     set((state) => ({
       sessions: state.sessions.map((s) =>
         s.id === sessionId ? { ...s, output: [...s.output, line] } : s
       ),
     }));
+  },
+
+  performAction: (sessionId, action) => {
+    const { wsClient, wsConnected } = get();
+    if (wsConnected && wsClient) {
+      wsClient.performAction(sessionId, action);
+    }
   },
 
   updateStatus: (sessionId, status) => {
@@ -209,7 +218,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     const client = new WSClient("ws://localhost:3001", {
       onSessions: (sessions) => {
-        set({ sessions });
+        set({ sessions, hasReceivedRealSessions: true });
       },
       onOutput: (sessionId, line) => {
         set((state) => ({
@@ -227,13 +236,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           ),
         }));
       },
-      onNotification: () => {
-        // Could show toast here
+      onElapsed: (sessionId, elapsed) => {
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === sessionId ? { ...s, elapsed } : s
+          ),
+        }));
+      },
+      onNotification: (message) => {
+        showToast(message);
       },
       onConnectionChange: (connected) => {
         set({ wsConnected: connected });
-        // When disconnected, revert to mock data
-        if (!connected) {
+        if (!connected && !get().hasReceivedRealSessions) {
           set({ sessions: MOCK_SESSIONS });
         }
       },
