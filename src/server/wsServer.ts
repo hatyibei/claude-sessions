@@ -3,6 +3,7 @@ import type { IncomingMessage } from "http";
 import { resolve } from "path";
 import { existsSync, realpathSync } from "fs";
 import { SessionManager } from "./sessionManager";
+import { saveSessionState } from "./sessionPersist";
 import { FileWatcher } from "./fileWatcher";
 import type { SessionEvent, OutputLine, SessionStatus } from "./sessionManager";
 import type { Session, TodoItem } from "../types/session";
@@ -121,7 +122,8 @@ export function createWSServer(
     }
   });
 
-  // Broadcast elapsed updates every 5 seconds
+  // Broadcast elapsed updates every 5 seconds + persist state every 30s
+  let persistCounter = 0;
   const elapsedInterval = setInterval(() => {
     const sessions = manager.getAllSessions();
     for (const session of sessions) {
@@ -132,6 +134,12 @@ export function createWSServer(
           elapsed: session.elapsed,
         });
       }
+    }
+    // Save state every 30 seconds (6 ticks × 5s)
+    persistCounter++;
+    if (persistCounter >= 6) {
+      persistCounter = 0;
+      saveSessionState(sessions);
     }
   }, 5000);
 
@@ -259,6 +267,7 @@ export function createWSServer(
   function cleanup() {
     clearInterval(elapsedInterval);
     fileWatcher.destroy();
+    saveSessionState(manager.getAllSessions());
   }
 
   return { wss, manager, cleanup };

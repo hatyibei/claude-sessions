@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, type Ref } from "react";
 import { showToast } from "@/stores/toastStore";
 
 interface Props {
   onCreateSession: (name: string, task: string) => void;
+  inputRef?: Ref<HTMLInputElement>;
 }
 
-export function GlobalCommandBar({ onCreateSession }: Props) {
+export function GlobalCommandBar({ onCreateSession, inputRef }: Props) {
   const [value, setValue] = useState("");
 
   const handleSubmit = useCallback(() => {
@@ -23,6 +24,7 @@ export function GlobalCommandBar({ onCreateSession }: Props) {
       <div className="flex-1 relative group">
         <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono text-lg text-th-primary">$</span>
         <input
+          ref={inputRef}
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value)}

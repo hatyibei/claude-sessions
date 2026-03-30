@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { Session } from "@/types/session";
+import { useSessionStore } from "@/stores/sessionStore";
 import { TerminalPreview } from "./TerminalPreview";
 import { InlineCommandInput } from "./InlineCommandInput";
 import { ProgressBar } from "./ProgressBar";
@@ -10,10 +11,6 @@ import { QuickActions } from "./QuickActions";
 
 interface Props {
   session: Session;
-  expanded: boolean;
-  onToggleExpand: () => void;
-  onSendCommand: (sessionId: string, command: string) => void;
-  onAction: (sessionId: string, action: "abort" | "start") => void;
 }
 
 function formatElapsed(seconds: number): string {
@@ -44,7 +41,12 @@ function StatusDot({ session }: { session: Session }) {
   );
 }
 
-function SessionCardInner({ session, expanded, onToggleExpand, onSendCommand, onAction }: Props) {
+function SessionCardInner({ session }: Props) {
+  const expanded = useSessionStore((s) => !!s.expandedCards[session.id]);
+  const toggleExpanded = useSessionStore((s) => s.toggleExpanded);
+  const sendCommand = useSessionStore((s) => s.sendCommand);
+  const performAction = useSessionStore((s) => s.performAction);
+
   const isActive = session.status === "running" && session.isMain;
   const showInput = session.status === "running" || session.status === "queued";
   const showTerminal = session.output.length > 0;
@@ -53,6 +55,7 @@ function SessionCardInner({ session, expanded, onToggleExpand, onSendCommand, on
 
   return (
     <div
+      data-session-id={session.id}
       className={`rounded-lg transition-all overflow-hidden bg-th-card border ${
         isActive
           ? "border-th-primary-border shadow-[0_0_12px_var(--c-primary-bg)]"
@@ -66,7 +69,7 @@ function SessionCardInner({ session, expanded, onToggleExpand, onSendCommand, on
       )}
 
       <div className="p-3">
-        <div className="flex items-start justify-between mb-2 cursor-pointer" onClick={onToggleExpand}>
+        <div className="flex items-start justify-between mb-2 cursor-pointer" onClick={() => toggleExpanded(session.id)}>
           <div>
             <div className="flex items-center gap-2 mb-1">
               <StatusDot session={session} />
@@ -99,11 +102,8 @@ function SessionCardInner({ session, expanded, onToggleExpand, onSendCommand, on
               )}
             </div>
             <span
-              className="material-symbols-outlined text-th-text-muted transition-transform duration-200"
-              style={{
-                transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-                fontSize: "14px",
-              }}
+              className="material-symbols-outlined text-th-text-muted transition-transform duration-200 text-sm"
+              style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
             >
               expand_more
             </span>
@@ -115,13 +115,13 @@ function SessionCardInner({ session, expanded, onToggleExpand, onSendCommand, on
         {showTerminal && <TerminalPreview output={session.output} expanded={expanded} />}
 
         {showInput && (
-          <InlineCommandInput sessionId={session.id} sessionName={session.name} onSend={onSendCommand} />
+          <InlineCommandInput sessionId={session.id} sessionName={session.name} onSend={sendCommand} />
         )}
 
         {expanded && (
           <div className="mt-3 pt-3 border-t border-dashed border-th-border">
             <TodoChips items={session.todoItems} />
-            <QuickActions status={session.status} onAction={(action) => onAction(session.id, action)} />
+            <QuickActions status={session.status} onAction={(action) => performAction(session.id, action)} />
           </div>
         )}
       </div>
@@ -129,4 +129,6 @@ function SessionCardInner({ session, expanded, onToggleExpand, onSendCommand, on
   );
 }
 
-export const SessionCard = React.memo(SessionCardInner);
+export const SessionCard = React.memo(SessionCardInner, (prev, next) =>
+  prev.session === next.session
+);

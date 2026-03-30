@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { GlobalCommandBar } from "@/components/GlobalCommandBar";
@@ -11,13 +11,11 @@ function useCurrentTime(): string {
   const [time, setTime] = useState("");
 
   useEffect(() => {
-    const fmt = () => {
-      const now = new Date();
-      return now.toLocaleTimeString("ja-JP", {
+    const fmt = () =>
+      new Date().toLocaleTimeString("ja-JP", {
         hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit",
         timeZoneName: "short",
       });
-    };
     setTime(fmt());
     const timer = setInterval(() => setTime(fmt()), 1000);
     return () => clearInterval(timer);
@@ -31,13 +29,13 @@ export default function Home() {
   const themeMode = useSessionStore((s) => s.theme);
   const setTheme = useSessionStore((s) => s.setTheme);
   const addSession = useSessionStore((s) => s.addSession);
-  const sendCommand = useSessionStore((s) => s.sendCommand);
-  const performAction = useSessionStore((s) => s.performAction);
-  const expandedCards = useSessionStore((s) => s.expandedCards);
-  const toggleExpanded = useSessionStore((s) => s.toggleExpanded);
   const wsConnected = useSessionStore((s) => s.wsConnected);
   const initWebSocket = useSessionStore((s) => s.initWebSocket);
   const destroyWebSocket = useSessionStore((s) => s.destroyWebSocket);
+  const toggleExpanded = useSessionStore((s) => s.toggleExpanded);
+
+  const globalInputRef = useRef<HTMLInputElement>(null);
+  const [focusedCardIndex, setFocusedCardIndex] = useState(-1);
 
   useEffect(() => {
     initWebSocket();
@@ -55,6 +53,58 @@ export default function Home() {
     }
     return counts;
   }, [sessions]);
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    const target = e.target as HTMLElement;
+    const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+
+    // ⌘K or Ctrl+K: Focus global command bar
+    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      e.preventDefault();
+      globalInputRef.current?.focus();
+      return;
+    }
+
+    // Don't handle navigation keys when typing in inputs
+    if (isInput) return;
+
+    // j/k: Navigate between cards
+    if (e.key === "j" || e.key === "k") {
+      e.preventDefault();
+      const allSessions = sessions;
+      if (allSessions.length === 0) return;
+
+      setFocusedCardIndex((prev) => {
+        const next = e.key === "j"
+          ? Math.min(prev + 1, allSessions.length - 1)
+          : Math.max(prev - 1, 0);
+        // Scroll the card into view
+        const card = document.querySelector(`[data-session-id="${allSessions[next]?.id}"]`);
+        card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        return next;
+      });
+      return;
+    }
+
+    // Enter: Expand/collapse focused card
+    if (e.key === "Enter" && focusedCardIndex >= 0 && focusedCardIndex < sessions.length) {
+      e.preventDefault();
+      toggleExpanded(sessions[focusedCardIndex].id);
+      return;
+    }
+
+    // Escape: Clear focus
+    if (e.key === "Escape") {
+      setFocusedCardIndex(-1);
+      (document.activeElement as HTMLElement)?.blur();
+    }
+  }, [sessions, focusedCardIndex, toggleExpanded]);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-th-bg text-th-text" data-theme={themeMode}>
@@ -86,7 +136,7 @@ export default function Home() {
               &#x2318;K
             </span>
             <span className="px-1.5 py-0.5 rounded bg-th-surface-high border border-th-border text-th-text-secondary">
-              &#x2318;/
+              j/k
             </span>
             <div className="w-[1px] h-4 mx-2 bg-th-border" />
             <span
@@ -109,15 +159,9 @@ export default function Home() {
         </div>
       </header>
 
-      <KanbanBoard
-        sessions={sessions}
-        expandedCards={expandedCards}
-        onToggleExpand={toggleExpanded}
-        onSendCommand={sendCommand}
-        onAction={performAction}
-      />
+      <KanbanBoard sessions={sessions} />
 
-      <GlobalCommandBar onCreateSession={addSession} />
+      <GlobalCommandBar onCreateSession={addSession} inputRef={globalInputRef} />
 
       <NotificationToast />
     </div>

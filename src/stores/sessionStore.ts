@@ -157,13 +157,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     });
   },
 
-  initWebSocket: () => {
+  initWebSocket: async () => {
     if (typeof window === "undefined") return;
     if (wsClient) return;
 
     const baseUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
-    const wsToken = process.env.NEXT_PUBLIC_WS_TOKEN || "";
-    const wsUrl = wsToken ? `${baseUrl}?token=${wsToken}` : baseUrl;
+
+    // Fetch auth token from API route
+    let wsUrl = baseUrl;
+    try {
+      const res = await fetch("/api/ws-token");
+      const { token } = await res.json();
+      if (token) wsUrl = `${baseUrl}?token=${token}`;
+    } catch {
+      // API not available, connect without token
+    }
 
     wsClient = new WSClient(wsUrl, {
       onSessions: (sessions) => {

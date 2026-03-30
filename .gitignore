@@ -32,6 +32,9 @@ yarn-error.log*
 # ws auth token
 .ws-token
 
+# session state persistence
+.claude-sessions-state.json
+
 # vercel
 .vercel
 

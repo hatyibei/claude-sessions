@@ -2,15 +2,12 @@
 
 import type { Session, SessionStatus } from "@/types/session";
 import { SessionCard } from "./SessionCard";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 interface Props {
   title: string;
   status: SessionStatus;
   sessions: Session[];
-  expandedCards: Record<string, boolean>;
-  onToggleExpand: (id: string) => void;
-  onSendCommand: (sessionId: string, command: string) => void;
-  onAction: (sessionId: string, action: "abort" | "start") => void;
 }
 
 const COLUMN_ICON: Record<string, string> = {
@@ -31,7 +28,7 @@ const COUNT_BG: Record<string, string> = {
   queued: "bg-th-surface-high",
 };
 
-export function Column({ title, status, sessions, expandedCards, onToggleExpand, onSendCommand, onAction }: Props) {
+export function Column({ title, status, sessions }: Props) {
   const titleClass = TITLE_COLOR[status] || "text-th-text-muted";
   const countClass = COUNT_BG[status] || "bg-th-surface-high";
 
@@ -52,14 +49,9 @@ export function Column({ title, status, sessions, expandedCards, onToggleExpand,
       </div>
 
       {sessions.map((session) => (
-        <SessionCard
-          key={session.id}
-          session={session}
-          expanded={!!expandedCards[session.id]}
-          onToggleExpand={() => onToggleExpand(session.id)}
-          onSendCommand={onSendCommand}
-          onAction={onAction}
-        />
+        <ErrorBoundary key={session.id}>
+          <SessionCard session={session} />
+        </ErrorBoundary>
       ))}
     </section>
   );

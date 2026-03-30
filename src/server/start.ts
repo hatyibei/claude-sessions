@@ -6,16 +6,11 @@ import { createWSServer } from "./wsServer";
 const raw = parseInt(process.env.WS_PORT || "3001", 10);
 const port = Number.isFinite(raw) && raw > 0 && raw < 65536 ? raw : 3001;
 
-// Generate auth token and write to a file the frontend can read
+// Generate auth token and write to .ws-token (read by Next.js API route)
 const token = process.env.WS_TOKEN || randomBytes(32).toString("hex");
 const tokenPath = resolve(process.cwd(), ".ws-token");
 writeFileSync(tokenPath, token, { mode: 0o600 });
 console.log(`Auth token written to ${tokenPath}`);
-
-// Also write a .env.local file so Next.js can read the token
-const envPath = resolve(process.cwd(), ".env.local");
-writeFileSync(envPath, `NEXT_PUBLIC_WS_TOKEN=${token}\n`, { mode: 0o600 });
-console.log(`Token exported to ${envPath} as NEXT_PUBLIC_WS_TOKEN`);
 
 const { wss, manager, cleanup } = createWSServer(port, token);
 
