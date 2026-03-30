@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { showToast } from "./NotificationToast";
+import { showToast } from "@/stores/toastStore";
 
 interface Props {
   onCreateSession: (name: string, task: string) => void;

@@ -29,7 +29,8 @@ interface ManagedSession {
 
 const MAX_SESSIONS = 10;
 const MAX_OUTPUT_LINES = 500;
-const MAX_SESSION_MS = parseInt(process.env.MAX_SESSION_MS ?? "7200000", 10);
+const rawSessionMs = parseInt(process.env.MAX_SESSION_MS ?? "7200000", 10);
+const MAX_SESSION_MS = Number.isFinite(rawSessionMs) && rawSessionMs > 0 ? rawSessionMs : 7200000;
 
 // Minimal env for spawned shells - no secret leakage
 function buildSafeEnv(): Record<string, string> {
@@ -62,9 +63,6 @@ export class SessionManager {
     }));
   }
 
-  getSessionCount(): number {
-    return this.sessions.size;
-  }
 
   createSession(task: string, cwd?: string): Session | null {
     if (this.sessions.size >= MAX_SESSIONS) return null;

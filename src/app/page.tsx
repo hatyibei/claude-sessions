@@ -46,11 +46,15 @@ export default function Home() {
 
   const currentTime = useCurrentTime();
 
-  const { runningCount, queuedCount, doneCount } = useMemo(() => ({
-    runningCount: sessions.filter((s) => s.status === "running").length,
-    queuedCount: sessions.filter((s) => s.status === "queued").length,
-    doneCount: sessions.filter((s) => s.status === "done").length,
-  }), [sessions]);
+  const { runningCount, queuedCount, doneCount } = useMemo(() => {
+    const counts = { runningCount: 0, queuedCount: 0, doneCount: 0 };
+    for (const s of sessions) {
+      if (s.status === "running") counts.runningCount++;
+      else if (s.status === "queued") counts.queuedCount++;
+      else if (s.status === "done") counts.doneCount++;
+    }
+    return counts;
+  }, [sessions]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-th-bg text-th-text" data-theme={themeMode}>

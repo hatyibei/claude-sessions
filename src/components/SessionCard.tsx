@@ -39,8 +39,7 @@ function StatusDot({ session }: { session: Session }) {
         : "bg-th-text-muted";
   return (
     <span
-      className={`w-2 h-2 rounded-full inline-block ${colorClass} ${session.status === "running" ? "animate-pulse" : ""}`}
-      style={{ opacity: session.isMain ? 1 : 0.7 }}
+      className={`w-2 h-2 rounded-full inline-block ${colorClass} ${session.status === "running" ? "animate-pulse" : ""} ${session.isMain ? "opacity-100" : "opacity-70"}`}
     />
   );
 }

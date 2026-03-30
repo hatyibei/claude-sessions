@@ -36,6 +36,11 @@ function isValidAction(a: unknown): a is ClientMessage["action"] {
   return typeof a === "string" && ["abort", "start"].includes(a);
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+function isValidSessionId(id: unknown): id is string {
+  return typeof id === "string" && (UUID_RE.test(id) || id.startsWith("mock-"));
+}
+
 function validateCwd(cwd: string | undefined): string | undefined {
   if (!cwd) return undefined;
   const resolved = resolve(cwd);
@@ -177,8 +182,7 @@ export function createWSServer(
 
           case "command":
             if (
-              msg.sessionId &&
-              typeof msg.sessionId === "string" &&
+              isValidSessionId(msg.sessionId) &&
               msg.command &&
               typeof msg.command === "string" &&
               msg.command.length <= MAX_COMMAND_LENGTH
@@ -189,8 +193,7 @@ export function createWSServer(
 
           case "action":
             if (
-              msg.sessionId &&
-              typeof msg.sessionId === "string" &&
+              isValidSessionId(msg.sessionId) &&
               isValidAction(msg.action)
             ) {
               switch (msg.action) {

@@ -1,9 +1,17 @@
 import { create } from "zustand";
 import type { Session, SessionStatus, OutputLine, ThemeMode } from "@/types/session";
 import { WSClient } from "@/lib/wsClient";
-import { showToast } from "@/components/NotificationToast";
+import { showToast } from "@/stores/toastStore";
 
 const MAX_CLIENT_OUTPUT = 500;
+
+function appendOutput(sessions: Session[], sessionId: string, line: OutputLine): Session[] {
+  return sessions.map((s) =>
+    s.id === sessionId
+      ? { ...s, output: [...s.output.slice(-(MAX_CLIENT_OUTPUT - 1)), line] }
+      : s
+  );
+}
 
 interface SessionState {
   sessions: Session[];
@@ -14,7 +22,6 @@ interface SessionState {
   addSession: (name: string, task: string) => void;
   sendCommand: (sessionId: string, command: string) => void;
   performAction: (sessionId: string, action: "abort" | "start") => void;
-  updateStatus: (sessionId: string, status: SessionStatus) => void;
   expandedCards: Record<string, boolean>;
   toggleExpanded: (sessionId: string) => void;
   initWebSocket: () => void;
@@ -128,25 +135,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       return;
     }
     const line: OutputLine = { t: "user", v: `> ${command}`, ts: Date.now() };
-    set((state) => ({
-      sessions: state.sessions.map((s) =>
-        s.id === sessionId ? { ...s, output: [...s.output.slice(-(MAX_CLIENT_OUTPUT - 1)), line] } : s
-      ),
-    }));
+    set((state) => ({ sessions: appendOutput(state.sessions, sessionId, line) }));
   },
 
   performAction: (sessionId, action) => {
     if (wsClient && get().wsConnected) {
       wsClient.performAction(sessionId, action);
     }
-  },
-
-  updateStatus: (sessionId, status) => {
-    set((state) => ({
-      sessions: state.sessions.map((s) =>
-        s.id === sessionId ? { ...s, status } : s
-      ),
-    }));
   },
 
   expandedCards: { r1: true } as Record<string, boolean>,
@@ -166,20 +161,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (typeof window === "undefined") return;
     if (wsClient) return;
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
+    const baseUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
+    const wsToken = process.env.NEXT_PUBLIC_WS_TOKEN || "";
+    const wsUrl = wsToken ? `${baseUrl}?token=${wsToken}` : baseUrl;
 
     wsClient = new WSClient(wsUrl, {
       onSessions: (sessions) => {
         set({ sessions, hasReceivedRealSessions: true });
       },
       onOutput: (sessionId, line) => {
-        set((state) => ({
-          sessions: state.sessions.map((s) =>
-            s.id === sessionId
-              ? { ...s, output: [...s.output.slice(-(MAX_CLIENT_OUTPUT - 1)), line] }
-              : s
-          ),
-        }));
+        set((state) => ({ sessions: appendOutput(state.sessions, sessionId, line) }));
       },
       onStatus: (sessionId, status, progress) => {
         set((state) => ({
