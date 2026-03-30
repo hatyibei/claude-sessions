@@ -32,7 +32,7 @@ export function InlineCommandInput({ sessionId, sessionName, onSend }: Props) {
           }
         }}
         className="w-full rounded text-[11px] font-mono pl-5 py-1.5 outline-none transition-colors bg-th-input-bg border border-th-input-border text-th-text"
-        placeholder={`${sessionName} \u306B\u6307\u793A...`}
+        placeholder={`${sessionName} に指示...`}
       />
     </div>
   );

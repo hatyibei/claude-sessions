@@ -44,9 +44,9 @@ export function KanbanBoard({ sessions }: Props) {
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <main className="flex-1 overflow-x-auto p-4 flex gap-4 bg-th-surface-lowest">
-        <Column title="\u5F85\u6A5F\u4E2D" status="queued" sessions={queued} />
-        <Column title="\u5B9F\u884C\u4E2D" status="running" sessions={running} />
-        <Column title="\u5B8C\u4E86" status="done" sessions={done} />
+        <Column title="待機中" status="queued" sessions={queued} />
+        <Column title="実行中" status="running" sessions={running} />
+        <Column title="完了" status="done" sessions={done} />
       </main>
     </DndContext>
   );

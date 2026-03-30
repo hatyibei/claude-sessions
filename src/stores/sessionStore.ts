@@ -110,7 +110,7 @@ let wsClient: WSClient | null = null;
 let mockNextId = 100;
 
 export const useSessionStore = create<SessionState>((set, get) => ({
-  sessions: MOCK_SESSIONS,
+  sessions: [] as Session[],
   theme: "dark" as ThemeMode,
   wsConnected: false,
   hasReceivedRealSessions: false,
@@ -170,7 +170,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (typeof window === "undefined") return;
     if (wsClient) return;
 
-    const baseUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
+    const baseUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3003";
 
     // Fetch auth token from API route
     let wsUrl = baseUrl;
@@ -216,12 +216,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         showToast(message);
       },
       onConnectionChange: (connected) => {
-        set((state) => ({
-          wsConnected: connected,
-          sessions: !connected && !state.hasReceivedRealSessions
-            ? MOCK_SESSIONS
-            : state.sessions,
-        }));
+        set({ wsConnected: connected });
       },
     });
 

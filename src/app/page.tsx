@@ -14,7 +14,6 @@ function useCurrentTime(): string {
     const fmt = () =>
       new Date().toLocaleTimeString("ja-JP", {
         hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit",
-        timeZoneName: "short",
       });
     setTime(fmt());
     const timer = setInterval(() => setTime(fmt()), 1000);
@@ -59,42 +58,34 @@ export default function Home() {
     const target = e.target as HTMLElement;
     const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
 
-    // ⌘K or Ctrl+K: Focus global command bar
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
       globalInputRef.current?.focus();
       return;
     }
 
-    // Don't handle navigation keys when typing in inputs
     if (isInput) return;
 
-    // j/k: Navigate between cards
     if (e.key === "j" || e.key === "k") {
       e.preventDefault();
-      const allSessions = sessions;
-      if (allSessions.length === 0) return;
-
+      if (sessions.length === 0) return;
       setFocusedCardIndex((prev) => {
         const next = e.key === "j"
-          ? Math.min(prev + 1, allSessions.length - 1)
+          ? Math.min(prev + 1, sessions.length - 1)
           : Math.max(prev - 1, 0);
-        // Scroll the card into view
-        const card = document.querySelector(`[data-session-id="${allSessions[next]?.id}"]`);
+        const card = document.querySelector(`[data-session-id="${sessions[next]?.id}"]`);
         card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
         return next;
       });
       return;
     }
 
-    // Enter: Expand/collapse focused card
     if (e.key === "Enter" && focusedCardIndex >= 0 && focusedCardIndex < sessions.length) {
       e.preventDefault();
       toggleExpanded(sessions[focusedCardIndex].id);
       return;
     }
 
-    // Escape: Clear focus
     if (e.key === "Escape") {
       setFocusedCardIndex(-1);
       (document.activeElement as HTMLElement)?.blur();
@@ -110,51 +101,50 @@ export default function Home() {
     <div className="h-screen flex flex-col overflow-hidden bg-th-bg text-th-text" data-theme={themeMode}>
       {/* Header */}
       <header className="flex justify-between items-center px-6 py-3 w-full z-30 bg-th-header-bg border-b border-th-header-border">
-        <div className="flex items-center gap-6">
-          <h1 className="font-mono text-xl font-bold text-th-primary">
+        {/* Left: Title + Status */}
+        <div className="flex items-center gap-6 min-w-0">
+          <h1 className="font-mono text-xl font-bold text-th-primary whitespace-nowrap">
             &rsaquo; claude-sessions
           </h1>
           <div className="hidden md:flex items-center gap-4 border-l border-th-border pl-6">
-            <span className="font-mono text-[10px] flex items-center gap-2 text-th-text-muted">
+            <span className="font-mono text-[10px] flex items-center gap-2 text-th-text-muted whitespace-nowrap">
               <span className="w-1.5 h-1.5 rounded-full animate-pulse bg-th-primary" />
               {runningCount} RUNNING
             </span>
-            <span className="font-mono text-[10px] flex items-center gap-2 text-th-text-muted">
+            <span className="font-mono text-[10px] flex items-center gap-2 text-th-text-muted whitespace-nowrap">
               <span className="w-1.5 h-1.5 rounded-full bg-th-text-muted" />
               {queuedCount} QUEUED
             </span>
-            <span className="font-mono text-[10px] flex items-center gap-2 text-th-text-muted">
+            <span className="font-mono text-[10px] flex items-center gap-2 text-th-text-muted whitespace-nowrap">
               <span className="w-1.5 h-1.5 rounded-full bg-th-tertiary" />
               {doneCount} DONE
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="hidden lg:flex items-center gap-4 font-mono text-[11px] text-th-text-muted">
-            <span className="px-1.5 py-0.5 rounded bg-th-surface-high border border-th-border text-th-text-secondary">
-              &#x2318;K
-            </span>
-            <span className="px-1.5 py-0.5 rounded bg-th-surface-high border border-th-border text-th-text-secondary">
-              j/k
-            </span>
-            <div className="w-[1px] h-4 mx-2 bg-th-border" />
+        {/* Right: Controls */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Clock + WS indicator */}
+          <div className="hidden lg:flex items-center gap-2 font-mono text-[11px] text-th-text-muted">
             <span
-              className={`w-1.5 h-1.5 rounded-full ${wsConnected ? "bg-th-tertiary" : "bg-th-text-muted"}`}
-              title={wsConnected ? "WS Connected" : "WS Disconnected (mock mode)"}
+              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${wsConnected ? "bg-th-tertiary" : "bg-th-text-muted"}`}
+              title={wsConnected ? "WS Connected" : "WS Disconnected"}
             />
-            <span className="tracking-widest">{currentTime}</span>
+            <span className="tracking-wider whitespace-nowrap">{currentTime}</span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <ThemeSwitcher current={themeMode} onChange={setTheme} />
-            <div className="flex items-center gap-3 border-l border-th-border pl-4">
-              {["schedule", "terminal", "settings"].map((icon) => (
-                <button key={icon} className="material-symbols-outlined transition-colors hover:opacity-80 text-th-text-muted">
-                  {icon}
-                </button>
-              ))}
-            </div>
+          <div className="hidden lg:block w-[1px] h-4 bg-th-border" />
+
+          {/* Theme Switcher */}
+          <ThemeSwitcher current={themeMode} onChange={setTheme} />
+
+          <div className="hidden lg:block w-[1px] h-4 bg-th-border" />
+
+          {/* Shortcut hints */}
+          <div className="hidden xl:flex items-center gap-2">
+            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-th-surface-high border border-th-border text-th-text-secondary whitespace-nowrap">
+              &#x2318;K
+            </span>
           </div>
         </div>
       </header>

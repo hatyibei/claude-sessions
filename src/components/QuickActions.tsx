@@ -17,7 +17,7 @@ export function QuickActions({ status, onAction }: Props) {
           onClick={() => onAction("start")}
           className="font-mono text-[10px] px-2 py-1 rounded transition-opacity hover:opacity-80 bg-th-primary-bg text-th-primary border border-th-primary-border"
         >
-          \u25B6 \u958B\u59CB
+          {"▶ 開始"}
         </button>
       )}
       {status === "running" && (
@@ -25,7 +25,7 @@ export function QuickActions({ status, onAction }: Props) {
           onClick={() => onAction("abort")}
           className="font-mono text-[10px] px-2 py-1 rounded transition-opacity hover:opacity-80 btn-error"
         >
-          \u2715 \u4E2D\u65AD
+          {"✕ 中断"}
         </button>
       )}
     </div>
